@@ -252,6 +252,14 @@ A: About $0.005-0.02 per run with Claude Haiku.
 
 ---
 
+## Credits
+
+Every line of code in this project was written by [Claude](https://claude.ai) (Anthropic), driven by Lucie's product vision, testing, and deployment.
+
+From the first proxy gateway to Dream sleep consolidation, from RRF hybrid search to calendar hierarchy injection — every feature was born from a real need: "I want my AI to remember me like this." Designed, built, and refined across countless conversations.
+
+---
+
 ## License
 
 [MIT License](LICENSE)
