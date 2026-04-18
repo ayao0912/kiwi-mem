@@ -244,7 +244,8 @@ app.add_middleware(
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
-PROTECTED_PREFIXES = ("/admin", "/debug", "/import", "/sync/reset", "/sync/export", "/sync/import-backup")
+PROTECTED_PREFIXES = ("/admin/", "/debug", "/import", "/sync/reset", "/sync/export", "/sync/import-backup")
+# 注意 /admin/ 带斜杠——/admin 本身（面板页面）不拦截，/admin/config 等 API 才拦截
 
 class AdminAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -805,8 +806,13 @@ async def api_status():
 
 @app.get("/admin")
 async def admin_panel():
-    """管理面板入口提示"""
-    return {"message": "管理面板请通过前端访问，或使用 /admin/config 等 API 端点"}
+    """管理面板"""
+    import pathlib
+    html_path = pathlib.Path(__file__).parent / "admin-panel" / "index.html"
+    if html_path.exists():
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
+    return {"message": "管理面板文件不存在，请确认 admin-panel/index.html 已部署"}
 
 
 @app.get("/v1/models")
