@@ -1,0 +1,186 @@
+# 🧠 AI Memory Gateway
+
+**让你的 AI 拥有长期记忆。**
+
+一个轻量级转发网关，在你和 LLM 之间加一层记忆系统。支持任何 OpenAI 兼容客户端（Kelivo、ChatBox、NextChat 等）和任何 LLM 服务商（OpenRouter、OpenAI、本地 Ollama 等）。
+
+Give your AI long-term memory. A lightweight proxy gateway that adds a memory layer between you and any LLM.
+
+---
+
+## ✨ 功能
+
+- **自定义人设** — 把你的 system prompt 写在 `system_prompt.txt`，每次对话自动注入
+- **长期记忆** — 自动从对话中提取关键信息，下次聊天时自动回忆相关内容
+- **预置记忆** — 把你想让 AI "一开始就知道"的事情批量导入
+- **兼容性强** — 支持所有 OpenAI 格式的客户端和 API 服务商
+- **零成本起步** — 可部署在 Zeabur 等平台的免费额度内
+
+## 🏗️ 架构
+
+```
+你的客户端（Kelivo / ChatBox / ...）
+        ↓
+   AI Memory Gateway（本项目）
+   ├── 注入 system prompt（人设）
+   ├── 搜索相关记忆 → 注入上下文
+   ├── 转发请求 → LLM API
+   └── 后台提取新记忆 → 存入数据库
+        ↓
+   LLM API（OpenRouter / OpenAI / Ollama / ...）
+```
+
+## 🚀 快速开始
+
+### 第一阶段：纯转发网关（不需要数据库）
+
+最简单的起步方式——先跑通网关，确认你的客户端能通过网关和 AI 对话。
+
+**1. 准备文件**
+
+你只需要这几个文件：
+- `main.py` — 网关主程序
+- `system_prompt.txt` — 你的 AI 人设（可选）
+- `requirements.txt` — Python 依赖
+- `Dockerfile` — 容器配置
+
+**2. 修改人设**
+
+编辑 `system_prompt.txt`，写入你想要的 AI 性格设定。
+
+**3. 部署到 Zeabur（推荐）**
+
+1. Fork 或上传代码到你的 GitHub 私有仓库
+2. 注册 [Zeabur](https://zeabur.com)（每月 $5 免费额度，够用）
+3. 创建项目 → 添加服务 → 连接 GitHub 仓库
+4. 设置环境变量：
+
+| 环境变量 | 说明 | 示例 |
+|---------|------|------|
+| `API_KEY` | 你的 LLM API Key | `sk-or-v1-xxxx`（OpenRouter）|
+| `API_BASE_URL` | LLM API 地址 | `https://openrouter.ai/api/v1/chat/completions` |
+| `DEFAULT_MODEL` | 默认模型 | `anthropic/claude-sonnet-4` |
+| `PORT` | 端口 | `8080` |
+
+5. 部署，访问你的网关地址看到 `{"status":"running"}` 就成功了
+
+**4. 连接客户端**
+
+以 Kelivo 为例：
+- API 地址填：`https://你的网关地址.zeabur.app/v1`
+- API Key 填：随便填一个（网关会用自己的 key）
+- 模型填：你在 `DEFAULT_MODEL` 里设的模型
+
+### 第二阶段：加上记忆系统
+
+在第一阶段基础上，加一个 PostgreSQL 数据库就能开启记忆功能。
+
+**1. 创建数据库**
+
+在 Zeabur 中：添加服务 → Marketplace → PostgreSQL
+
+**2. 添加环境变量**
+
+| 环境变量 | 说明 | 示例 |
+|---------|------|------|
+| `DATABASE_URL` | PostgreSQL 连接字符串 | `postgresql://user:pass@host:port/db` |
+| `MEMORY_ENABLED` | 开启记忆 | `true` |
+| `MEMORY_MODEL` | 提取记忆用的模型（推荐便宜的小模型） | `anthropic/claude-haiku-4` |
+| `MAX_MEMORIES_INJECT` | 每次注入的最大记忆条数 | `15` |
+
+**3. 重新部署**
+
+部署后访问 `https://你的网关地址.zeabur.app/debug/memories`，看到 `"total_memories": 0` 就说明数据库连接成功。
+
+**4. 导入预置记忆（可选）**
+
+1. 复制 `seed_memories_example.py` 为 `seed_memories.py`
+2. 修改里面的记忆条目，写入你想让 AI 一开始就知道的信息
+3. 部署后访问 `https://你的网关地址.zeabur.app/import/seed-memories`，看到 `"status": "done"` 就导入成功了
+
+### 第三阶段：关闭记忆（应急）
+
+如果记忆系统出问题，把环境变量 `MEMORY_ENABLED` 改回 `false` 即可退回纯转发模式。不需要改代码。
+
+## 📁 文件说明
+
+```
+ai-memory-gateway/
+├── main.py                    # 网关主程序
+├── database.py                # 数据库操作（PostgreSQL）
+├── config.py                  # 环境变量配置的读写，配置读取有三层优先级：数据库 > 环境变量 > 代码默认值。
+├── memory_extractor.py        # AI 记忆提取
+├── system_prompt.txt          # 你的 AI 人设（自行编辑）
+├── seed_memories_example.py   # 预置记忆示例
+├── requirements.txt           # Python 依赖
+├── Dockerfile                 # 容器配置
+├── LICENSE                    # MIT 许可证
+└── README.md                  # 本文件
+```
+
+## 🔧 API 接口
+
+| 路径 | 方法 | 说明 |
+|------|------|------|
+| `/` | GET | 健康检查，查看网关状态 |
+| `/v1/chat/completions` | POST | 核心转发接口（OpenAI 兼容） |
+| `/v1/models` | GET | 模型列表 |
+| `/debug/memories` | GET | 查看所有记忆 |
+| `/debug/memories?q=关键词` | GET | 搜索记忆 |
+| `/import/seed-memories` | GET | 导入预置记忆 |
+
+## 🌐 支持的 LLM 服务商
+
+只要兼容 OpenAI 聊天格式就行。改 `API_BASE_URL` 环境变量即可切换：
+
+| 服务商 | API_BASE_URL |
+|--------|-------------|
+| OpenRouter | `https://openrouter.ai/api/v1/chat/completions` |
+| OpenAI | `https://api.openai.com/v1/chat/completions` |
+| Ollama（本地） | `http://localhost:11434/v1/chat/completions` |
+| 其他兼容服务 | 查阅对应文档 |
+
+> ⚠️ 部分 Gemini preview 模型（如 `gemini-3-flash-preview`）可能存在流式输出兼容性问题导致空回复，建议使用正式版模型（如 `gemini-2.5-flash`）。
+
+## 💡 记忆系统原理
+
+1. **你发消息** → 网关从数据库搜索相关记忆
+2. **记忆注入** → 相关记忆拼接到 system prompt 后面
+3. **AI 回复** → 网关边转发边捕获完整回复
+4. **后台提取** → 用小模型（如 Haiku）从对话中提取关键信息
+5. **存入数据库** → 下次对话时可以检索到
+
+提取记忆的成本很低——Haiku 每次只处理几十个 token，可以忽略不计。
+
+> **关于向量搜索：** 当前版本使用关键词匹配（中文 bigram 分词 + ILIKE），适合记忆量在几百条以内的场景。如果记忆量增长到上千条且需要语义搜索（比如说"过年"能搜到"春节"），可以加装 pgvector 扩展做 embedding 向量检索。`database.py` 的 `search_memories` 函数预留了权重配置，加一路向量分数即可。
+
+## ❓ 常见问题
+
+**Q: 部署后访问显示 502？**
+A: 检查端口设置。Zeabur 默认用 8080，确保环境变量 `PORT=8080`。
+
+**Q: 数据库连接失败？**
+A: Zeabur 的 PostgreSQL 需要 SSL。在连接字符串末尾加 `?sslmode=require`。
+
+**Q: 记忆会越来越多影响性能吗？**
+A: 每次最多注入 15 条记忆（可调），不会无限增长地消耗 token。
+
+**Q: 能用免费额度跑吗？**
+A: Zeabur 每月 $5 免费额度，网关 + PostgreSQL 的资源消耗很低，够用。LLM API 费用另算（推荐 OpenRouter，按量付费）。
+
+**Q: 不会写代码能搞吗？**
+A: 能。这个项目的第一个部署者就是不会写代码的——代码是 AI 写的，部署是她自己看文档搞定的。
+
+## 📄 许可证
+
+[MIT License](LICENSE) — 随便用，改了也不用告诉我。
+
+## 🙏 致谢
+
+这个项目诞生于一个简单的需求：**让 AI 不要每次醒来都忘了我是谁。**
+
+> "记忆库不是数据库，是家。"
+
+---
+
+*Built with love, for anyone who wants their AI to remember.*
