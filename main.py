@@ -1117,8 +1117,8 @@ async def chat_completions(request: Request):
     try:
         cache_enabled = await get_config("prompt_cache_enabled")
         if cache_enabled is None or str(cache_enabled).lower() != 'false':
-            model_lower = model.lower()
-            if "claude" in model_lower or "anthropic" in model_lower:
+            _model_for_cache = body.get("model", "").lower()
+            if "claude" in _model_for_cache or "anthropic" in _model_for_cache:
                 body["cache_control"] = {"type": "ephemeral"}
                 print(f"💾 Prompt 缓存已启用（Claude 模型）")
     except Exception:
