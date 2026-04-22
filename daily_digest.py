@@ -251,7 +251,7 @@ async def _run_daily_digest_impl(date_str: str, now_taipei, model_override: str 
 
             # 4. 解决“字典 vs 列表”的死板冲突！(关键修复)
             # 如果大模型返回了一个字典 {...}，我们需要帮它转换为代码要求的列表 [...]
-            if isinstance(digests, dict):
+  if isinstance(digests, dict):
                 found_list = False
                 # 遍历字典，如果里面藏着一个列表，就把列表提出来
                 for key, value in digests.items():
