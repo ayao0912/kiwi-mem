@@ -24,7 +24,7 @@ _RAW_BASE_URL = os.getenv("MEMORY_API_BASE_URL", "") or os.getenv("API_BASE_URL"
 # 确保 URL 以 /chat/completions 结尾
 MEMORY_API_BASE_URL = _RAW_BASE_URL if _RAW_BASE_URL.rstrip("/").endswith("/chat/completions") else f"{_RAW_BASE_URL.rstrip('/')}/chat/completions"
 
-DIGEST_MODEL = os.getenv("MEMORY_MODEL", "glm-5.1")
+DIGEST_MODEL = os.getenv("MEMORY_MODEL", "glm-4.7")
 
 # 东八区（台北）
 TZ_TAIPEI = timezone(timedelta(hours=8))
