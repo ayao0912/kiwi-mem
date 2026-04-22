@@ -36,7 +36,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")
 # Embedding 配置
 # ============================================================
 
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "openai/text-embedding-3-small")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "embedding-3")
 
 # 搜索权重（向量版）
 WEIGHT_SEMANTIC = float(os.getenv("WEIGHT_SEMANTIC", "0.5"))
