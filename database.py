@@ -56,7 +56,7 @@ DEDUP_THRESHOLD = float(os.getenv("DEDUP_THRESHOLD", "0.55"))
 
 # API 配置（和 main.py 共用环境变量）
 API_KEY = os.getenv("API_KEY", "")
-API_BASE_URL = os.getenv("API_BASE_URL", "https://openrouter.ai/api/v1/chat/completions")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://open.bigmodel.cn/api/paas/v4/chat/completions")
 
 
 def _get_embedding_url() -> str:
