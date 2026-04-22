@@ -24,7 +24,7 @@ _RAW_BASE_URL = os.getenv("MEMORY_API_BASE_URL", "") or os.getenv("API_BASE_URL"
 # 确保 URL 以 /chat/completions 结尾
 MEMORY_API_BASE_URL = _RAW_BASE_URL if _RAW_BASE_URL.rstrip("/").endswith("/chat/completions") else f"{_RAW_BASE_URL.rstrip('/')}/chat/completions"
 
-DIGEST_MODEL = os.getenv("MEMORY_MODEL", "anthropic/claude-haiku-4")
+DIGEST_MODEL = os.getenv("MEMORY_MODEL", "glm-5.1")
 
 # 东八区（台北）
 TZ_TAIPEI = timezone(timedelta(hours=8))
@@ -143,7 +143,7 @@ async def _run_daily_digest_impl(date_str: str, now_taipei, model_override: str 
         print(f"   ✅ 碎片太少，直接升级为日志条目")
         return {"date": date_str, "fragments": len(fragments), "digests": len(fragments)}
     
-    # ---- 2. 格式化碎片，发给 Haiku 整理 ----
+    # ---- 2. 格式化碎片，发给 GLM 整理 ----
     fragment_lines = []
     for f in fragments:
         title = f["title"] or ""
@@ -169,7 +169,7 @@ async def _run_daily_digest_impl(date_str: str, now_taipei, model_override: str 
         use_api_url = MEMORY_API_BASE_URL
         use_api_key = MEMORY_API_KEY
     
-    # ---- 3. 调用 Haiku ----
+    # ---- 3. 调用 GLM ----
     try:
         async with httpx.AsyncClient(timeout=90) as client:
             response = await client.post(
@@ -191,7 +191,7 @@ async def _run_daily_digest_impl(date_str: str, now_taipei, model_override: str 
             )
             
             if response.status_code != 200:
-                print(f"   ⚠️ Haiku 请求失败: {response.status_code}")
+                print(f"   ⚠️ GLM 请求失败: {response.status_code}")
                 return {"date": date_str, "fragments": len(fragments), "digests": 0, "error": f"HTTP {response.status_code}"}
             
             data = response.json()
