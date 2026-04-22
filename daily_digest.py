@@ -169,7 +169,30 @@ async def _run_daily_digest_impl(date_str: str, now_taipei, model_override: str 
         use_api_url = MEMORY_API_BASE_URL
         use_api_key = MEMORY_API_KEY
     
-    # ---- 3. 调用 GLM ----
+    # ---- 3. 调用大模型（终极修复版） ----
+    # 第一步：定义一个无懈可击的、带有示例的“系统指令”
+    # 这个指令强硬地告诉模型，它必须、也只能输出 JSON 数组
+    system_prompt = f"""
+你是一个专业的记忆整理助手。你的唯一任务是接收用户发来的多条零碎记忆，并将它们总结、提炼、分类，最终输出一个严格的 JSON 数组（list of objects）。
+数组中每个对象代表一条整理后的核心记忆，包含以下字段：
+- "title": (string) 为这条记忆起一个简洁的标题。
+- "content": (string) 对这条记忆进行详细、完整的描述。
+- "category": (string) 从以下分类中选择最贴切的一个：[{categories_text}]
+- "importance": (float) 评估这条记忆的重要性，范围 0.0 到 1.0。
+
+**输出示例**：
+[
+  {{"title": "关于未来的规划", "content": "今天深入思考了关于职业发展的规划，并列出了几个短期目标。", "category": "个人成长", "importance": 0.8}},
+  {{"title": "与朋友的有趣对话", "content": "和朋友聊到了最近看的一部电影，分享了各自的看法，非常开心。", "category": "社交活动", "importance": 0.6}}
+]
+
+你的输出必须是纯粹的 JSON 数组，绝对不能包含任何 markdown 标记、解释性文字或其他多余内容。
+"""
+    
+    # 第二步：将碎片记忆合并到用户指令中
+    user_prompt = "请严格按照 System Prompt 的指示，将以下碎片记忆整理成 JSON 格式。不要添加任何解释、注释或 markdown 标记。只输出纯 JSON！这是今天要整理的记忆：\n\n" + "\n".join(fragment_lines)
+    
+    # 第三步：发送一个让模型无法拒绝的请求
     try:
         async with httpx.AsyncClient(timeout=90) as client:
             response = await client.post(
@@ -183,46 +206,48 @@ async def _run_daily_digest_impl(date_str: str, now_taipei, model_override: str 
                 json={
                     "model": use_model,
                     "max_tokens": 2000,
+                    # 关键修复：强制开启 JSON 输出模式
+                    "response_format": {"type": "json_object"},
                     "messages": [
-                        {"role": "system", "content": prompt},
-                        {"role": "user", "content": f"请整理 {date_str} 的碎片记忆。"},
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
                     ],
                 },
             )
             
             if response.status_code != 200:
-                print(f"   ⚠️ GLM 请求失败: {response.status_code}")
+                print(f"   ⚠️ 模型请求失败: {response.status_code}, {response.text}")
                 return {"date": date_str, "fragments": len(fragments), "digests": 0, "error": f"HTTP {response.status_code}"}
             
-            data = response.json()
-            text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            # 由于开启了 JSON 模式，模型返回的必定是纯 JSON，不再需要复杂的清洗
+            raw_text = response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+            print(f"   🔍 整理模型返回: {raw_text[:300]}...") # 打印更多内容方便调试
             
-            # 日志
-            print(f"   🔍 整理模型返回（前200字）: {text[:200]}...")
-            
-# ---- 强大的 JSON 净化与解析模块开始 ----
-            import re
-            
-            # 1. 清理 markdown 标记 (提取 ``` 之间的核心内容)
-            text = text.strip()
-            if "```" in text:
-                blocks = re.findall(r'```(?:json)?\s*(.*?)\s*```', text, re.DOTALL)
-                if blocks:
-                    text = blocks[0]
-            
+            # 直接解析，因为我们强制了 JSON 模式
             digests = None
-            # 2. 尝试直接解析
             try:
-                digests = json.loads(text)
+                # 首先假设模型返回的是一个包含列表的字典，如 {"data": [...]}
+                parsed_json = json.loads(raw_text)
+                if isinstance(parsed_json, list):
+                    digests = parsed_json
+                elif isinstance(parsed_json, dict):
+                    # 遍历字典，找到里面的第一个列表
+                    for key, value in parsed_json.items():
+                        if isinstance(value, list):
+                            digests = value
+                            break
             except Exception:
-                # 3. 正则兜底：智能提取第一个 [ 到最后一个 ]，或者第一个 { 到最后一个 } 之间的内容
-                match = re.search(r'(\[.*\]|\{.*\})', text, re.DOTALL)
-                if match:
-                    try:
-                        digests = json.loads(match.group(1))
-                        print(f"   🔧 JSON 正则兜底解析成功")
-                    except Exception:
-                        pass
+                print(f"   ⚠️ 即使在 JSON 模式下，解析依然失败！")
+                digests = None
+
+            # 最终校验
+            if not digests or not isinstance(digests, list):
+                print(f"   ⚠️ 整理模型返回格式错误。模型没有按要求返回包含列表的JSON。")
+                return {"date": date_str, "fragments": len(fragments), "digests": 0, "error": "invalid format"}
+
+    except Exception as e:
+        print(f"   ⚠️ 每日整理过程中发生未知错误: {e}")
+        return {"date": date_str, "fragments": len(fragments), "digests": 0, "error": str(e)}
 
             # 4. 解决“字典 vs 列表”的死板冲突！(关键修复)
             # 如果大模型返回了一个字典 {...}，我们需要帮它转换为代码要求的列表 [...]
