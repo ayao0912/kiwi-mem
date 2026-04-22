@@ -23,7 +23,7 @@ from datetime import datetime, timedelta, timezone
 MEMORY_API_KEY = os.getenv("MEMORY_API_KEY", "") or os.getenv("API_KEY", "")
 _RAW_BASE_URL = os.getenv("MEMORY_API_BASE_URL", "") or os.getenv("API_BASE_URL", "https://openrouter.ai/api/v1/chat/completions")
 MEMORY_API_BASE_URL = _RAW_BASE_URL if _RAW_BASE_URL.rstrip("/").endswith("/chat/completions") else f"{_RAW_BASE_URL.rstrip('/')}/chat/completions"
-DIGEST_MODEL = os.getenv("MEMORY_MODEL", "anthropic/claude-haiku-4")
+DIGEST_MODEL = os.getenv("MEMORY_MODEL", "glm-5.1")
 
 TZ_TAIPEI = timezone(timedelta(hours=8))
 
