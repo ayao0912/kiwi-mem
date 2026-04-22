@@ -200,33 +200,49 @@ async def _run_daily_digest_impl(date_str: str, now_taipei, model_override: str 
             # 日志
             print(f"   🔍 整理模型返回（前200字）: {text[:200]}...")
             
-            # 清理 markdown
-            text = text.strip()
-            if text.startswith("```json"):
-                text = text[7:]
-            if text.startswith("```"):
-                text = text[3:]
-            if text.endswith("```"):
-                text = text[:-3]
-            text = text.strip()
+# ---- 强大的 JSON 净化与解析模块开始 ----
+            import re
             
-            # 解析 JSON（正则兜底）
+            # 1. 清理 markdown 标记 (提取 ``` 之间的核心内容)
+            text = text.strip()
+            if "```" in text:
+                blocks = re.findall(r'```(?:json)?\s*(.*?)\s*```', text, re.DOTALL)
+                if blocks:
+                    text = blocks[0]
+            
             digests = None
+            # 2. 尝试直接解析
             try:
                 digests = json.loads(text)
-            except json.JSONDecodeError:
-                import re
-                match = re.search(r'\[.*\]', text, re.DOTALL)
+            except Exception:
+                # 3. 正则兜底：智能提取第一个 [ 到最后一个 ]，或者第一个 { 到最后一个 } 之间的内容
+                match = re.search(r'(\[.*\]|\{.*\})', text, re.DOTALL)
                 if match:
                     try:
-                        digests = json.loads(match.group())
+                        digests = json.loads(match.group(1))
                         print(f"   🔧 JSON 正则兜底解析成功")
-                    except json.JSONDecodeError:
+                    except Exception:
                         pass
-            
+
+            # 4. 解决“字典 vs 列表”的死板冲突！(关键修复)
+            # 如果大模型返回了一个字典 {...}，我们需要帮它转换为代码要求的列表 [...]
+            if isinstance(digests, dict):
+                found_list = False
+                # 遍历字典，如果里面藏着一个列表，就把列表提出来
+                for key, value in digests.items():
+                    if isinstance(value, list):
+                        digests = value
+                        found_list = True
+                        break
+                # 如果实在找不到列表，就把整个字典强行套进一个列表里
+                if not found_list:
+                    digests = [digests]
+
+            # 5. 最终校验
             if not digests or not isinstance(digests, list):
-                print(f"   ⚠️ 整理模型返回格式错误")
+                print(f"   ⚠️ 整理模型返回格式错误。解析失败，原文前100字: {text[:100]}...")
                 return {"date": date_str, "fragments": len(fragments), "digests": 0, "error": "invalid format"}
+            # ---- 强大的 JSON 净化与解析模块结束 ----
     
     except Exception as e:
         print(f"   ⚠️ 每日整理出错: {e}")
