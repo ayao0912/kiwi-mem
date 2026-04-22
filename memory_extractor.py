@@ -13,13 +13,13 @@ import httpx
 from typing import List, Dict
 
 API_KEY = os.getenv("MEMORY_API_KEY", "") or os.getenv("API_KEY", "")
-_RAW_BASE_URL = os.getenv("MEMORY_API_BASE_URL", "") or os.getenv("API_BASE_URL", "https://openrouter.ai/api/v1/chat/completions")
+_RAW_BASE_URL = os.getenv("MEMORY_API_BASE_URL", "") or os.getenv("API_BASE_URL", "https://open.bigmodel.cn/api/paas/v4/chat/completions")
 
 # 确保 URL 以 /chat/completions 结尾
 API_BASE_URL = _RAW_BASE_URL if _RAW_BASE_URL.rstrip("/").endswith("/chat/completions") else f"{_RAW_BASE_URL.rstrip('/')}/chat/completions"
 
 # 用来提取记忆的模型（便宜的就行）
-MEMORY_MODEL = os.getenv("MEMORY_MODEL", "anthropic/claude-haiku-4")
+MEMORY_MODEL = os.getenv("MEMORY_MODEL", "glm-4.7")
 
 
 EXTRACTION_PROMPT = """你是信息提取专家，负责从对话中识别并提取值得长期记住的关键信息。
