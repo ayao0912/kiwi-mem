@@ -59,7 +59,7 @@ API_KEY = os.getenv("API_KEY", "")
 API_BASE_URL = os.getenv("API_BASE_URL", "https://open.bigmodel.cn/api/paas/v4/chat/completions")
 
 # 默认模型（如果客户端没指定就用这个）
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "glm-5.1")
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "glm-4.7")
 
 # 网关端口
 PORT = int(os.getenv("PORT", "8080"))
